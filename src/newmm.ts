@@ -129,7 +129,7 @@ export class NewmmTokenizer {
 
             const spaceIdx = sample.lastIndexOf(' ');
             if (spaceIdx !== -1) {
-                cutPos = spaceIdx + 1;
+                cutPos = TEXT_SCAN_BEGIN + spaceIdx + 1;
             } else {
                 const wordTokens = this.oneCut(sample);
                 let maxIdx = 0;
