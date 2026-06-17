@@ -1,0 +1,54 @@
+{
+    "name": "nlpo3-typescript",
+    "version": "1.0.0",
+    "description": "Pure TypeScript/ES2016 implementation of nlpO3 NewMM Thai word tokenizer",
+    "keywords": [
+        "thai",
+        "nlp",
+        "tokenizer",
+        "word-segmentation",
+        "newmm",
+        "pythainlp",
+        "nlpo3"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/PyThaiNLP/nlpo3.git"
+    },
+    "homepage": "https://github.com/PyThaiNLP/nlpo3",
+    "license": "Apache-2.0",
+    "type": "module",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.cjs"
+            }
+        }
+    },
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "build": "tsup && node scripts/fix-cjs.mjs",
+        "test": "node --test --import tsx test/newmm.test.ts test/performance.test.ts",
+        "test:perf": "node --expose-gc --test --import tsx test/performance.test.ts",
+        "prepublishOnly": "npm run build"
+    },
+    "devDependencies": {
+        "@types/node": "^22.0.0",
+        "tsup": "^8.5.0",
+        "tsx": "^4.19.0",
+        "typescript": "^5.8.0"
+    }
+}

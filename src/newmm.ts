@@ -1,0 +1,313 @@
+import { TrieChar } from './trie_char.js';
+import { tccPos } from './tcc_tokenizer.js';
+import { getDefaultWords } from './default_dict.js';
+
+const MAX_GRAPH_SIZE = 50;
+const TEXT_SCAN_POINT = 120;
+const TEXT_SCAN_LEFT = 20;
+const TEXT_SCAN_RIGHT = 20;
+const TEXT_SCAN_BEGIN = TEXT_SCAN_POINT - TEXT_SCAN_LEFT;
+const TEXT_SCAN_END = TEXT_SCAN_POINT + TEXT_SCAN_RIGHT;
+
+const NON_THAI_PATTERN = /^[-a-zA-Z]+|^[0-9]+(?:[,\.][0-9]+)*|^[๐-๙]+(?:[,\.][๐-๙]+)*|^[ \t]+|^\r?\n/;
+const THAI_TWOCHARS_PATTERN = /^[ก-ฮ]{0,2}$/;
+
+class MinHeap {
+    private heap: number[] = [];
+
+    push(val: number): void {
+        this.heap.push(val);
+        this.bubbleUp(this.heap.length - 1);
+    }
+
+    pop(): number | undefined {
+        if (this.heap.length === 0) return undefined;
+        const top = this.heap[0];
+        const bottom = this.heap.pop()!;
+        if (this.heap.length > 0) {
+            this.heap[0] = bottom;
+            this.sinkDown(0);
+        }
+        return top;
+    }
+
+    peek(): number | undefined {
+        return this.heap[0];
+    }
+
+    get length(): number {
+        return this.heap.length;
+    }
+
+    private bubbleUp(idx: number): void {
+        while (idx > 0) {
+            const parent = (idx - 1) >> 1;
+            if (this.heap[parent] <= this.heap[idx]) break;
+            [this.heap[parent], this.heap[idx]] = [this.heap[idx], this.heap[parent]];
+            idx = parent;
+        }
+    }
+
+    private sinkDown(idx: number): void {
+        const n = this.heap.length;
+        while (true) {
+            let smallest = idx;
+            const left = (idx << 1) + 1;
+            const right = left + 1;
+            if (left < n && this.heap[left] < this.heap[smallest]) smallest = left;
+            if (right < n && this.heap[right] < this.heap[smallest]) smallest = right;
+            if (smallest === idx) break;
+            [this.heap[smallest], this.heap[idx]] = [this.heap[idx], this.heap[smallest]];
+            idx = smallest;
+        }
+    }
+}
+
+export class NewmmTokenizer {
+    private dict: TrieChar;
+
+    /**
+     * Create a tokenizer with the built-in ~62k word dictionary.
+     *
+     * @param customWords Optional extra words to add on top of the default dictionary.
+     *                    When omitted, only the default dictionary is used.
+     */
+    constructor(customWords?: string[]) {
+        this.dict = new TrieChar(getDefaultWords());
+        if (customWords) {
+            for (const w of customWords) {
+                this.dict.addWord(w);
+            }
+        }
+    }
+
+    /**
+     * Create a tokenizer using only the given word list (no default dictionary).
+     * Mirrors `NewmmTokenizer::from_word_list` in the Rust version.
+     */
+    static fromWordList(words: string[]): NewmmTokenizer {
+        const tok = Object.create(NewmmTokenizer.prototype) as NewmmTokenizer;
+        tok.dict = new TrieChar(words);
+        return tok;
+    }
+
+    addWord(...words: string[]): void {
+        for (const w of words) {
+            this.dict.addWord(w);
+        }
+    }
+
+    removeWord(...words: string[]): void {
+        for (const w of words) {
+            this.dict.removeWord(w);
+        }
+    }
+
+    segment(text: string, safe = false): string[] {
+        return this.segmentWithOptions(text, safe, undefined);
+    }
+
+    segmentWithOptions(text: string, safe: boolean, _parallelChunkSize?: number): string[] {
+        return this.internalSegment(text, safe, _parallelChunkSize);
+    }
+
+    private internalSegment(_input: string, safe: boolean, _parallelChunkSize?: number): string[] {
+        if (_input.length === 0) return [];
+        return this.segmentSingle(_input, safe);
+    }
+
+    private segmentSingle(input: string, safe: boolean): string[] {
+        if (!safe || input.length < TEXT_SCAN_END) {
+            return this.oneCut(input);
+        }
+
+        let chars = Array.from(input);
+        const txtParts: string[] = [];
+        while (chars.length >= TEXT_SCAN_END) {
+            const sample = chars.slice(TEXT_SCAN_BEGIN, TEXT_SCAN_END).join('');
+            let cutPos: number;
+
+            const spaceIdx = sample.lastIndexOf(' ');
+            if (spaceIdx !== -1) {
+                cutPos = spaceIdx + 1;
+            } else {
+                const wordTokens = this.oneCut(sample);
+                let maxIdx = 0;
+                let maxLen = 0;
+                for (let i = 0; i < wordTokens.length; i++) {
+                    const tokLen = Array.from(wordTokens[i]).length;
+                    if (tokLen >= maxLen) {
+                        maxLen = tokLen;
+                        maxIdx = i;
+                    }
+                }
+                cutPos = TEXT_SCAN_BEGIN;
+                for (let i = 0; i < maxIdx; i++) {
+                    cutPos += Array.from(wordTokens[i]).length;
+                }
+            }
+
+            txtParts.push(chars.slice(0, cutPos).join(''));
+            chars = chars.slice(cutPos);
+        }
+        if (chars.length > 0) {
+            txtParts.push(chars.join(''));
+        }
+
+        const out: string[] = [];
+        for (const part of txtParts) {
+            const words = this.oneCut(part);
+            out.push(...words);
+        }
+        return out;
+    }
+
+    private oneCut(input: string): string[] {
+        const text = input;
+        const chars = Array.from(text);
+        const textLength = chars.length;
+        const validPosition = tccPos(text);
+        const isValidPosition = (pos: number): boolean => {
+            let lo = 0, hi = validPosition.length - 1;
+            while (lo <= hi) {
+                const mid = (lo + hi) >>> 1;
+                if (validPosition[mid] === pos) return true;
+                if (validPosition[mid] < pos) lo = mid + 1;
+                else hi = mid - 1;
+            }
+            return false;
+        };
+
+        let graphSize = 0;
+        const graph = new Map<number, number[]>();
+        const result: string[] = [];
+
+        const positionList = new MinHeap();
+        const existingCandidate = new Set<number>();
+        positionList.push(0);
+        existingCandidate.add(0);
+
+        let endPosition = 0;
+
+        while (true) {
+            const beginPosition = positionList.peek();
+            if (beginPosition === undefined || beginPosition >= textLength) break;
+            positionList.pop();
+
+            const prefixes = this.dict.prefixLengthsOfChars(chars, beginPosition);
+            for (const wordLength of prefixes) {
+                const endCandidate = beginPosition + wordLength;
+                if (isValidPosition(endCandidate)) {
+                    if (!graph.has(beginPosition)) {
+                        graph.set(beginPosition, []);
+                    }
+                    graph.get(beginPosition)!.push(endCandidate);
+
+                    graphSize += 1;
+                    if (!existingCandidate.has(endCandidate)) {
+                        existingCandidate.add(endCandidate);
+                        positionList.push(endCandidate);
+                    }
+                    if (graphSize > MAX_GRAPH_SIZE) {
+                        break;
+                    }
+                }
+            }
+
+            const listLen = positionList.length;
+
+            if (listLen === 1) {
+                const firstCandidate = positionList.peek()!;
+                const path = this.bfsPathsGraph(graph, endPosition, firstCandidate);
+                graphSize = 0;
+                graph.clear();
+
+                for (let i = 1; i < path.length; i++) {
+                    const tokenChars = chars.slice(endPosition, path[i]);
+                    result.push(tokenChars.join(''));
+                    endPosition = path[i];
+                }
+            } else if (listLen === 0) {
+                const subStr = chars.slice(beginPosition).join('');
+                const nonThaiMatch = NON_THAI_PATTERN.exec(subStr);
+
+                if (nonThaiMatch && nonThaiMatch.index === 0) {
+                    const matchedCharCount = Array.from(nonThaiMatch[0]).length;
+                    endPosition = beginPosition + matchedCharCount;
+                } else {
+                    let finishWithoutBreak = true;
+                    for (let pos = beginPosition + 1; pos < textLength; pos++) {
+                        if (isValidPosition(pos)) {
+                            const listOfPrefixes = this.dict.prefixLengthsOfChars(chars, pos);
+
+                            const validWords: number[] = [];
+                            for (const wl of listOfPrefixes) {
+                                const newPos = pos + wl;
+                                if (isValidPosition(newPos)) {
+                                    const wordStr = chars.slice(pos, pos + wl).join('');
+                                    if (!THAI_TWOCHARS_PATTERN.test(wordStr)) {
+                                        validWords.push(wl);
+                                    }
+                                }
+                            }
+
+                            if (validWords.length > 0) {
+                                endPosition = pos;
+                                finishWithoutBreak = false;
+                                break;
+                            }
+                            if (NON_THAI_PATTERN.test(chars.slice(pos).join(''))) {
+                                endPosition = pos;
+                                finishWithoutBreak = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (finishWithoutBreak) {
+                        endPosition = textLength;
+                    }
+                }
+
+                graphSize = 0;
+                graph.clear();
+                const tokenChars = chars.slice(beginPosition, endPosition);
+                result.push(tokenChars.join(''));
+                positionList.push(endPosition);
+                existingCandidate.add(endPosition);
+            }
+        }
+
+        return result;
+    }
+
+    private bfsPathsGraph(
+        graph: Map<number, number[]>,
+        start: number,
+        goal: number,
+    ): number[] {
+        const visited = new Set<number>();
+        visited.add(start);
+        const queue: { vertex: number; path: number[] }[] = [{ vertex: start, path: [start] }];
+
+        while (queue.length > 0) {
+            const { vertex, path } = queue.shift()!;
+            const neighbors = graph.get(vertex);
+            if (neighbors) {
+                for (const position of neighbors) {
+                    if (position === goal) {
+                        path.push(position);
+                        return path;
+                    }
+                    if (!visited.has(position)) {
+                        visited.add(position);
+                        const newPath = path.slice();
+                        newPath.push(position);
+                        queue.push({ vertex: position, path: newPath });
+                    }
+                }
+            }
+        }
+
+        throw new Error(`newmm BFS: cannot find goal ${goal} from start ${start}`);
+    }
+}
