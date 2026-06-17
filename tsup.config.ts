@@ -18,5 +18,8 @@ export default defineConfig([
         target: 'es2016',
         dts: false,
         clean: false,
+        esbuildOptions(options) {
+            options.logOverride = { 'empty-import-meta': 'silent' };
+        },
     },
 ]);
