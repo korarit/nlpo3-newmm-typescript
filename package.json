@@ -1,6 +1,7 @@
 {
     "name": "nlpo3-typescript",
     "version": "1.0.0",
+    "author": "Korarit Sangthong",
     "description": "Pure TypeScript/ES2016 implementation of nlpO3 NewMM Thai word tokenizer",
     "keywords": [
         "thai",
@@ -13,9 +14,9 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/PyThaiNLP/nlpo3.git"
+        "url": "git+https://github.com/korarit/nlpo3-newmm-typescript.git"
     },
-    "homepage": "https://github.com/PyThaiNLP/nlpo3",
+    "homepage": "https://github.com/korarit/nlpo3-newmm-typescript",
     "license": "Apache-2.0",
     "type": "module",
     "exports": {

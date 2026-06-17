@@ -1,10 +1,12 @@
-# nlpo3-typescript
+# nlpo3-NEWMM-typescript
 
 Pure TypeScript / ES2016 implementation of the **NewMM** (New Maximum Matching) Thai word tokenizer.
 
 Transliterated from the Rust version of [nlpO3](https://github.com/PyThaiNLP/nlpo3) — a Thai natural language processing library by PyThaiNLP.
 
 No native bindings, no build tools required — pure JavaScript that works in both ESM and CommonJS.
+
+**Project VideCode use deepseek 4 Pro**
 
 ## Features
 
