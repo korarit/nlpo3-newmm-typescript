@@ -1,4 +1,4 @@
-# nlpo3-NEWMM-typescript
+# nlpo3-newmm-typescript
 
 Pure TypeScript / ES2016 implementation of the **NewMM** (New Maximum Matching) Thai word tokenizer.
 
@@ -21,7 +21,7 @@ No native bindings, no build tools required — pure JavaScript that works in bo
 ## Installation
 
 ```bash
-npm install nlpo3-typescript
+npm install nlpo3-newmm-typescript
 ```
 
 ## Usage
@@ -29,7 +29,7 @@ npm install nlpo3-typescript
 ### TypeScript / ESM
 
 ```typescript
-import { NewmmTokenizer } from 'nlpo3-typescript';
+import { NewmmTokenizer } from 'nlpo3-newmm-typescript';
 
 // Default dictionary only
 const tok = new NewmmTokenizer();
@@ -40,7 +40,7 @@ tok.segment('ภาษาไทยเป็นภาษาที่มีโค�
 ### CommonJS
 
 ```javascript
-const { NewmmTokenizer } = require('nlpo3-typescript');
+const { NewmmTokenizer } = require('nlpo3-newmm-typescript');
 
 const tok = new NewmmTokenizer();
 const tokens = tok.segment('สวัสดีชาวโลก');
