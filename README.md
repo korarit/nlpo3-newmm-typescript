@@ -128,7 +128,9 @@ The algorithm is the same dictionary-based maximal matching used by [PyThaiNLP](
 
 ## Benchmarks
 
-> Run with: `npm run test:perf` (Node.js only) or `python test_all.py` (cross-model comparison)
+> Run standalone: `node --expose-gc node_tokenizers.js`
+> Run Python bridge: `python test_all.py`
+> Run Node.js test: `npm run test:perf`
 
 ### Performance Impact (v1.0.3 optimization)
 
@@ -148,38 +150,31 @@ The algorithm is the same dictionary-based maximal matching used by [PyThaiNLP](
 - Hoisted `isValidPosition` closure to module-level function
 - Cached token lengths in safe-mode sliding window
 
+### Dictionary & Memory
+
+| Model | Dictionary Size | Memory (RSS Δ) |
+|-------|----------------|----------------|
+| **nlpo3-newmm (TS)** | **~62,000** | 53.8 MB |
+| wordcut (JS) | ~25,000 | 25.3 MB |
+| tnthai (JS) | ~20,000 | 7.0 MB |
+| intl-segmenter (C++ ICU) | unknown | 2.0 MB |
+
 ### Accuracy
 
 | Dataset | Sentences | Text Match | Boundary F1 |
 |---------|-----------|------------|-------------|
 | LST20 | 300 | 99.3% | **88.6%** |
 
-### Cross-Lib Comparison (LST20, 300 sentences)
+### Cross-Model Comparison (LST20, 300 sentences)
 
-| Model | F1 | Time | ms/sent |
-|-------|-----|------|---------|
-| **nlpo3-newmm (TS)** | **89.08%** | 855ms | 2.85 |
-| intl-segmenter (C++) | 75.88% | 630ms | 2.10 |
-| wordcut (JS) | 73.33% | 3754ms | 12.51 |
-| tnthai (JS) | 40.44% | 7368ms | 24.56 |
+| Model | F1 | Time | ms/sent | Memory |
+|-------|-----|------|---------|--------|
+| **nlpo3-newmm (TS)** | **88.4%** | **509ms** | 1.70 | 53.8 MB |
+| intl-segmenter (C++) | 75.5% | 446ms | 1.49 | 2.0 MB |
+| wordcut (JS) | 72.9% | 3558ms | 11.86 | 25.3 MB |
+| tnthai (JS) | 40.4% | 6728ms | 48.40 | 7.0 MB |
 
-*`intl-segmenter` is a native C++ binding (ICU). `nlpo3-newmm` is pure TypeScript — competitive speed with best-in-class accuracy.*
-
-### Speed (LST20)
-
-| Throughput | Avg per sentence |
-|------------|------------------|
-| ~492 sent/s | ~2.0 ms |
-
-### Memory
-
-| Metric | Value |
-|--------|-------|
-| Tokenizer idle overhead | ~22 MB |
-| RSS after dict load | ~182 MB |
-| Active segment (300 LST20) | negative heap churn |
-
-*Negative heap churn means the garbage collector frees more memory than each segment call allocates, resulting in a net-zero allocation profile.*
+*`intl-segmenter` is a native C++ binding (ICU). `nlpo3-newmm` is pure TypeScript — within 60ms of native C++ while delivering best-in-class accuracy.*
 
 ## Tests
 
