@@ -165,12 +165,12 @@ The algorithm is the same dictionary-based maximal matching used by [PyThaiNLP](
 |---------|-----------|------------|-------------|
 | LST20 | 300 | 99.3% | **88.6%** |
 
-### Cross-Model Comparison (LST20, 300 sentences)
+### Cross-Lib Comparison (LST20, 300 sentences)
 
 | Model | F1 | Time | ms/sent | Memory |
 |-------|-----|------|---------|--------|
 | **nlpo3-newmm (TS)** | **88.4%** | **509ms** | 1.70 | 53.8 MB |
-| intl-segmenter (C++) | 75.5% | 446ms | 1.49 | 2.0 MB |
+| intl-segmenter (JS but build from C++) | 75.5% | 446ms | 1.49 | 2.0 MB |
 | wordcut (JS) | 72.9% | 3558ms | 11.86 | 25.3 MB |
 | tnthai (JS) | 40.4% | 6728ms | 48.40 | 7.0 MB |
 
