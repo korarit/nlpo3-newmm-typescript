@@ -121,10 +121,10 @@ export class NewmmTokenizer {
             return this.oneCut(input);
         }
 
-        let chars = Array.from(input);
+        let remaining = input;
         const txtParts: string[] = [];
-        while (chars.length >= TEXT_SCAN_END) {
-            const sample = chars.slice(TEXT_SCAN_BEGIN, TEXT_SCAN_END).join('');
+        while (remaining.length >= TEXT_SCAN_END) {
+            const sample = remaining.slice(TEXT_SCAN_BEGIN, TEXT_SCAN_END);
             let cutPos: number;
 
             const spaceIdx = sample.lastIndexOf(' ');
@@ -134,8 +134,10 @@ export class NewmmTokenizer {
                 const wordTokens = this.oneCut(sample);
                 let maxIdx = 0;
                 let maxLen = 0;
+                const tokenLens = new Array(wordTokens.length);
                 for (let i = 0; i < wordTokens.length; i++) {
-                    const tokLen = Array.from(wordTokens[i]).length;
+                    const tokLen = wordTokens[i].length;
+                    tokenLens[i] = tokLen;
                     if (tokLen >= maxLen) {
                         maxLen = tokLen;
                         maxIdx = i;
@@ -143,29 +145,27 @@ export class NewmmTokenizer {
                 }
                 cutPos = TEXT_SCAN_BEGIN;
                 for (let i = 0; i < maxIdx; i++) {
-                    cutPos += Array.from(wordTokens[i]).length;
+                    cutPos += tokenLens[i];
                 }
             }
 
-            txtParts.push(chars.slice(0, cutPos).join(''));
-            chars = chars.slice(cutPos);
+            txtParts.push(remaining.slice(0, cutPos));
+            remaining = remaining.slice(cutPos);
         }
-        if (chars.length > 0) {
-            txtParts.push(chars.join(''));
+        if (remaining.length > 0) {
+            txtParts.push(remaining);
         }
 
         const out: string[] = [];
         for (const part of txtParts) {
-            const words = this.oneCut(part);
-            out.push(...words);
+            out.push(...this.oneCut(part));
         }
         return out;
     }
 
     private oneCut(input: string): string[] {
         const text = input;
-        const chars = Array.from(text);
-        const textLength = chars.length;
+        const textLength = text.length;
         const validPosition = tccPos(text);
         const isValidPosition = (pos: number): boolean => {
             let lo = 0, hi = validPosition.length - 1;
@@ -194,7 +194,7 @@ export class NewmmTokenizer {
             if (beginPosition === undefined || beginPosition >= textLength) break;
             positionList.pop();
 
-            const prefixes = this.dict.prefixLengthsOfChars(chars, beginPosition);
+            const prefixes = this.dict.prefixLengthsOfText(text, beginPosition);
             for (const wordLength of prefixes) {
                 const endCandidate = beginPosition + wordLength;
                 if (isValidPosition(endCandidate)) {
@@ -223,28 +223,26 @@ export class NewmmTokenizer {
                 graph.clear();
 
                 for (let i = 1; i < path.length; i++) {
-                    const tokenChars = chars.slice(endPosition, path[i]);
-                    result.push(tokenChars.join(''));
+                    result.push(text.slice(endPosition, path[i]));
                     endPosition = path[i];
                 }
             } else if (listLen === 0) {
-                const subStr = chars.slice(beginPosition).join('');
+                const subStr = text.slice(beginPosition);
                 const nonThaiMatch = NON_THAI_PATTERN.exec(subStr);
 
                 if (nonThaiMatch && nonThaiMatch.index === 0) {
-                    const matchedCharCount = Array.from(nonThaiMatch[0]).length;
-                    endPosition = beginPosition + matchedCharCount;
+                    endPosition = beginPosition + nonThaiMatch[0].length;
                 } else {
                     let finishWithoutBreak = true;
                     for (let pos = beginPosition + 1; pos < textLength; pos++) {
                         if (isValidPosition(pos)) {
-                            const listOfPrefixes = this.dict.prefixLengthsOfChars(chars, pos);
+                            const listOfPrefixes = this.dict.prefixLengthsOfText(text, pos);
 
                             const validWords: number[] = [];
                             for (const wl of listOfPrefixes) {
                                 const newPos = pos + wl;
                                 if (isValidPosition(newPos)) {
-                                    const wordStr = chars.slice(pos, pos + wl).join('');
+                                    const wordStr = text.slice(pos, pos + wl);
                                     if (!THAI_TWOCHARS_PATTERN.test(wordStr)) {
                                         validWords.push(wl);
                                     }
@@ -256,7 +254,7 @@ export class NewmmTokenizer {
                                 finishWithoutBreak = false;
                                 break;
                             }
-                            if (NON_THAI_PATTERN.test(chars.slice(pos).join(''))) {
+                            if (NON_THAI_PATTERN.test(text.slice(pos))) {
                                 endPosition = pos;
                                 finishWithoutBreak = false;
                                 break;
@@ -270,8 +268,7 @@ export class NewmmTokenizer {
 
                 graphSize = 0;
                 graph.clear();
-                const tokenChars = chars.slice(beginPosition, endPosition);
-                result.push(tokenChars.join(''));
+                result.push(text.slice(beginPosition, endPosition));
                 positionList.push(endPosition);
                 existingCandidate.add(endPosition);
             }

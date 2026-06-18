@@ -105,4 +105,19 @@ export class TrieChar {
         }
         return result;
     }
+
+    prefixLengthsOfText(text: string, startIdx: number): number[] {
+        const result: number[] = [];
+        let node: TrieNode | undefined = this.root;
+        const len = text.length;
+        for (let i = startIdx; i < len; i++) {
+            if (!node.children) break;
+            node = node.children[text[i]];
+            if (!node) break;
+            if (node.end) {
+                result.push(i - startIdx + 1);
+            }
+        }
+        return result;
+    }
 }
