@@ -218,7 +218,7 @@ tsup.config.ts      — Build config (dual ESM/CJS)
 - **Rust implementation**: [nlpO3](https://github.com/PyThaiNLP/nlpo3) by [PyThaiNLP](https://github.com/PyThaiNLP)
 - **TCC rules**: Theeramunkong et al. 2000 — *"Learning-based Thai Word Boundary"*
 - **Thai dictionary**: PyThaiNLP project (`words_th.txt`)
-
+- **Dataset Test LST20 300row**: THE COMPARISONS OF THAI WORD SEGMENTATION METHODS ON THE LST20 DATASET [LINK](https://github.com/Fairpart/REPO_Comparing-a-Thai-Words-Segmentation-Methods-in-the-LST20-Datasets-are-incre)
 ## License
 
 Apache-2.0 (matching nlpO3)
