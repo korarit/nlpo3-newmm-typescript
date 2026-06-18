@@ -130,25 +130,36 @@ The algorithm is the same dictionary-based maximal matching used by [PyThaiNLP](
 
 > Run with: `npm run test:perf`
 
-### Accuracy (LST20)
+### Accuracy
 
-| Sentences | Text Match | Boundary F1 |
-|-----------|------------|-------------|
-| 300 | 99.3% | **88.8%** |
+| Dataset | Sentences | Text Match | Boundary F1 |
+|---------|-----------|------------|-------------|
+| LST20 | 300 | 99.3% | **88.6%** |
+| thai_wordseg_menu | 109 | 100.0% | **68.8%** |
+
+| Difficulty | Sentences | Text Match | Boundary F1 |
+|------------|-----------|------------|-------------|
+| easy | 20 | 100% | 35.0% |
+| medium | 20 | 100% | 77.4% |
+| hard | 20 | 100% | 81.2% |
+| very_hard | 20 | 100% | 88.9% |
+| noisy | 29 | 100% | 63.7% |
+
+### Speed (LST20)
+
+| Throughput | Avg per sentence |
+|------------|------------------|
+| ~492 sent/s | ~2.0 ms |
 
 ### Memory
 
 | Metric | Value |
 |--------|-------|
 | Tokenizer idle overhead | ~22 MB |
-| RSS after dict load | ~190 MB |
-| Active segment (300 LST20) | ~6-7 MB heap churn |
+| RSS after dict load | ~182 MB |
+| Active segment (300 LST20) | negative heap churn |
 
-### Speed (LST20)
-
-| Throughput | Avg per sentence |
-|------------|------------------|
-| ~50 sent/s | ~20 ms |
+*Negative heap churn means the garbage collector frees more memory than each segment call allocates, resulting in a net-zero allocation profile.*
 
 ## Tests
 
