@@ -1,6 +1,6 @@
 {
     "name": "nlpo3-newmm-typescript",
-    "version": "1.0.3",
+    "version": "1.1.0",
     "author": "Korarit Sangthong",
     "description": "Pure TypeScript/ES2016 implementation of nlpO3 NewMM Thai word tokenizer",
     "keywords": [
