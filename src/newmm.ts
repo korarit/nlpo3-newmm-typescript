@@ -10,7 +10,31 @@ const TEXT_SCAN_BEGIN = TEXT_SCAN_POINT - TEXT_SCAN_LEFT;
 const TEXT_SCAN_END = TEXT_SCAN_POINT + TEXT_SCAN_RIGHT;
 
 const NON_THAI_PATTERN = /^[-a-zA-Z]+|^[0-9]+(?:[,\.][0-9]+)*|^[๐-๙]+(?:[,\.][๐-๙]+)*|^[ \t]+|^\r?\n/;
-const THAI_TWOCHARS_PATTERN = /^[ก-ฮ]{0,2}$/;
+const NON_THAI_RAW = NON_THAI_PATTERN.source.replace(/\^/g, '');
+const NON_THAI_RE = new RegExp(NON_THAI_RAW, 'y');
+
+const THAI_CONSONANT_LO = 0x0E01; // ก
+const THAI_CONSONANT_HI = 0x0E2E; // ฮ
+
+function isTwoCharThaiConsonants(text: string, pos: number, len: number): boolean {
+    if (len > 2) return false;
+    for (let i = 0; i < len; i++) {
+        const c = text.charCodeAt(pos + i);
+        if (c < THAI_CONSONANT_LO || c > THAI_CONSONANT_HI) return false;
+    }
+    return true;
+}
+
+function isValidPos(validPosition: number[], pos: number): boolean {
+    let lo = 0, hi = validPosition.length - 1;
+    while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        if (validPosition[mid] === pos) return true;
+        if (validPosition[mid] < pos) lo = mid + 1;
+        else hi = mid - 1;
+    }
+    return false;
+}
 
 class MinHeap {
     private heap: number[] = [];
@@ -167,16 +191,6 @@ export class NewmmTokenizer {
         const text = input;
         const textLength = text.length;
         const validPosition = tccPos(text);
-        const isValidPosition = (pos: number): boolean => {
-            let lo = 0, hi = validPosition.length - 1;
-            while (lo <= hi) {
-                const mid = (lo + hi) >>> 1;
-                if (validPosition[mid] === pos) return true;
-                if (validPosition[mid] < pos) lo = mid + 1;
-                else hi = mid - 1;
-            }
-            return false;
-        };
 
         let graphSize = 0;
         const graph = new Map<number, number[]>();
@@ -197,11 +211,13 @@ export class NewmmTokenizer {
             const prefixes = this.dict.prefixLengthsOfText(text, beginPosition);
             for (const wordLength of prefixes) {
                 const endCandidate = beginPosition + wordLength;
-                if (isValidPosition(endCandidate)) {
-                    if (!graph.has(beginPosition)) {
-                        graph.set(beginPosition, []);
+                if (isValidPos(validPosition, endCandidate)) {
+                    const edges = graph.get(beginPosition);
+                    if (edges) {
+                        edges.push(endCandidate);
+                    } else {
+                        graph.set(beginPosition, [endCandidate]);
                     }
-                    graph.get(beginPosition)!.push(endCandidate);
 
                     graphSize += 1;
                     if (!existingCandidate.has(endCandidate)) {
@@ -227,23 +243,22 @@ export class NewmmTokenizer {
                     endPosition = path[i];
                 }
             } else if (listLen === 0) {
-                const subStr = text.slice(beginPosition);
-                const nonThaiMatch = NON_THAI_PATTERN.exec(subStr);
+                NON_THAI_RE.lastIndex = beginPosition;
+                const nonThaiMatch = NON_THAI_RE.exec(text);
 
-                if (nonThaiMatch && nonThaiMatch.index === 0) {
+                if (nonThaiMatch && nonThaiMatch.index === beginPosition) {
                     endPosition = beginPosition + nonThaiMatch[0].length;
                 } else {
                     let finishWithoutBreak = true;
                     for (let pos = beginPosition + 1; pos < textLength; pos++) {
-                        if (isValidPosition(pos)) {
+                        if (isValidPos(validPosition, pos)) {
                             const listOfPrefixes = this.dict.prefixLengthsOfText(text, pos);
 
                             const validWords: number[] = [];
                             for (const wl of listOfPrefixes) {
                                 const newPos = pos + wl;
-                                if (isValidPosition(newPos)) {
-                                    const wordStr = text.slice(pos, pos + wl);
-                                    if (!THAI_TWOCHARS_PATTERN.test(wordStr)) {
+                                if (isValidPos(validPosition, newPos)) {
+                                    if (!isTwoCharThaiConsonants(text, pos, wl)) {
                                         validWords.push(wl);
                                     }
                                 }
@@ -254,7 +269,9 @@ export class NewmmTokenizer {
                                 finishWithoutBreak = false;
                                 break;
                             }
-                            if (NON_THAI_PATTERN.test(text.slice(pos))) {
+                            NON_THAI_RE.lastIndex = pos;
+                            const ntMatch = NON_THAI_RE.exec(text);
+                            if (ntMatch && ntMatch.index === pos) {
                                 endPosition = pos;
                                 finishWithoutBreak = false;
                                 break;
@@ -285,9 +302,10 @@ export class NewmmTokenizer {
         const visited = new Set<number>();
         visited.add(start);
         const queue: { vertex: number; path: number[] }[] = [{ vertex: start, path: [start] }];
+        let head = 0;
 
-        while (queue.length > 0) {
-            const { vertex, path } = queue.shift()!;
+        while (head < queue.length) {
+            const { vertex, path } = queue[head++];
             const neighbors = graph.get(vertex);
             if (neighbors) {
                 for (const position of neighbors) {
